@@ -1,27 +1,32 @@
-from flask import Flask, request
-import requests
 import os
+import requests
+import telebot
+import time
 
-app = Flask(__name__)
-
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 
-def send_telegram(text):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    requests.post(url, json={"chat_id": CHAT_ID, "text": text})
+bot = telebot.TeleBot(BOT_TOKEN)
 
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    data = request.json
+# List of Solana wallet addresses to track
+WALLETS = [
+    "YOUR_FIRST_WALLET_ADDRESS",
+    "YOUR_SECOND_WALLET_ADDRESS"
+]
+
+def check_wallet_activity(wallet):
+    url = f"https://api.solscan.io/account/tokens?address={wallet}&limit=10"
+    headers = {"accept": "application/json"}
+
     try:
-        for event in data.get("events", []):
-            tx = event.get("description", {}).get("summary", "Unknown")
-            wallet = event.get("account", "Unknown")
-            send_telegram(f"🚨 Activity Detected\nWallet: {wallet}\nAction: {tx}")
+        response = requests.get(url, headers=headers).json()
+        # You can add logic here to detect specific token buys / tx
+        bot.send_message(CHAT_ID, f"Checked wallet: {wallet}\nToken count: {len(response)}")
     except Exception as e:
-        send_telegram(f"Error: {str(e)}")
-    return 'OK', 200
+        bot.send_message(CHAT_ID, f"Error checking {wallet}:\n{str(e)}")
 
-if __name__ == '__main__':
-    app.run(port=5000)
+if __name__ == "__main__":
+    while True:
+        for wallet in WALLETS:
+            check_wallet_activity(wallet)
+        time.sleep(60)
